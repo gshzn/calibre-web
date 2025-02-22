@@ -20,6 +20,9 @@
 import base64
 import datetime
 import os
+from pathlib import Path
+from typing import Iterable
+from typing import TYPE_CHECKING
 import uuid
 import zipfile
 from time import gmtime, strftime
@@ -54,11 +57,49 @@ from .services import SyncToken as SyncToken
 from .web import download_required
 from .kobo_auth import requires_kobo_auth, get_auth_token
 
+if TYPE_CHECKING:
+    from _typeshed.wsgi import StartResponse
+    from _typeshed.wsgi import WSGIEnvironment
+    from _typeshed.wsgi import WSGIApplication
+
+
 KOBO_FORMATS = {"KEPUB": ["KEPUB"], "EPUB": ["EPUB3", "EPUB"]}
 KOBO_STOREAPI_URL = "https://storeapi.kobo.com"
 KOBO_IMAGEHOST_URL = "https://cdn.kobo.com/book-images"
 
 SYNC_ITEM_LIMIT = 100
+
+
+def write_to_file(request_response: dict):
+    request_id = uuid.uuid4()
+    path = Path(os.getcwd()).parent / "requests" / f"{request_id}.json"
+
+    path.write_text(json.dumps(request_response))
+
+
+class RequestResponseLogger:
+
+    def __init__(self, app: "WSGIApplication"):
+        self.app = app
+
+    def __call__(
+        self, environ: "WSGIEnvironment", start_response: "StartResponse"
+    ) -> Iterable[bytes]:
+        request_data = {
+            "path": request.path,
+            "headers": request.headers,
+            "query": request.query_string,
+            "body": request.json,
+        }
+
+        def generate_response(status, headers, exc_info=None):
+            response = start_response(status, headers, exc_info)
+            response_data = {"body": response, "headers": headers, "status": status}
+            write_to_file({"request": request_data, "response": response_data})
+            return response
+
+        return self.app(environ, generate_response)
+
 
 kobo = Blueprint("kobo", __name__, url_prefix="/kobo/<auth_token>")
 kobo_auth.disable_failed_auth_redirect_for_blueprint(kobo)
