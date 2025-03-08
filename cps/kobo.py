@@ -87,14 +87,14 @@ def capture_response_data(res: Response) -> Response:
 
     write_to_file({
         "response": {
-            "response": res.get_data(as_text=True),
+            "response": res.get_data(as_text=True) if "download" not in request.path else "ebook",
             "response_headers": list(res.headers.items()),
         },
         "request": {
             "url": request.url,
             "query": request.query_string.decode(),
             "headers": list(request.headers.items()),
-            "body": request.get_data(as_text=True) if "download" not in request.path else "ebook"
+            "body": request.get_data(as_text=True),
         }
     })
 
