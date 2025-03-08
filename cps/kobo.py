@@ -40,6 +40,7 @@ from flask import (
     abort
 )
 from flask_login import current_user
+from werkzeug import Response
 from werkzeug.datastructures import Headers
 from sqlalchemy import func
 from sqlalchemy.sql.expression import and_, or_
@@ -77,31 +78,25 @@ def write_to_file(request_response: dict):
     path.write_text(json.dumps(request_response))
 
 
-class RequestResponseLogger:
-
-    def __init__(self, app: "WSGIApplication"):
-        self.app = app
-
-    def __call__(
-        self, environ: "WSGIEnvironment", start_response: "StartResponse"
-    ) -> Iterable[bytes]:
-        request_data = {
-            "path": request.path,
-            "headers": request.headers,
+def capture_response_data(res: Response) -> Response:
+    write_to_file({
+        "response": {
+            "response_json": res.json,
+            "response_headers": res.headers,
+        },
+        "request": {
+            "url": request.url,
             "query": request.query_string,
-            "body": request.json,
+            "headers": request.headers,
+            "body": request.data
         }
+    })
 
-        def generate_response(status, headers, exc_info=None):
-            response = start_response(status, headers, exc_info)
-            response_data = {"body": response, "headers": headers, "status": status}
-            write_to_file({"request": request_data, "response": response_data})
-            return response
-
-        return self.app(environ, generate_response)
+    return res
 
 
 kobo = Blueprint("kobo", __name__, url_prefix="/kobo/<auth_token>")
+kobo.after_app_request(capture_response_data)
 kobo_auth.disable_failed_auth_redirect_for_blueprint(kobo)
 kobo_auth.register_url_value_preprocessor(kobo)
 
