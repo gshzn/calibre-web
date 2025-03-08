@@ -94,7 +94,7 @@ def capture_response_data(res: Response) -> Response:
             "url": request.url,
             "query": request.query_string.decode(),
             "headers": list(request.headers.items()),
-            "body": request.get_data(as_text=True)
+            "body": request.get_data(as_text=True) if "download" not in request.path else "ebook"
         }
     })
 
