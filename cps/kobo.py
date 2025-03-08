@@ -73,22 +73,27 @@ SYNC_ITEM_LIMIT = 100
 
 def write_to_file(request_response: dict):
     request_id = uuid.uuid4()
-    path = Path(os.getcwd()).parent / "requests" / f"{request_id}.json"
+    path = Path(__file__).parent.parent / "requests" / f"{request_id}.json"
+
+    path.parent.mkdir(parents=True)
 
     path.write_text(json.dumps(request_response))
 
 
 def capture_response_data(res: Response) -> Response:
+    if "kobo" not in request.path:
+        return res
+
     write_to_file({
         "response": {
-            "response_json": res.json,
-            "response_headers": res.headers,
+            "response": res.get_data(as_text=True),
+            "response_headers": list(res.headers.items()),
         },
         "request": {
             "url": request.url,
-            "query": request.query_string,
-            "headers": request.headers,
-            "body": request.data
+            "query": request.query_string.decode(),
+            "headers": list(request.headers.items()),
+            "body": request.get_data(as_text=True)
         }
     })
 
