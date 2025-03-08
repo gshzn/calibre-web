@@ -75,7 +75,8 @@ def write_to_file(request_response: dict):
     request_id = uuid.uuid4()
     path = Path(__file__).parent.parent / "requests" / f"{request_id}.json"
 
-    path.parent.mkdir(parents=True)
+    if not path.parent.exists():
+        path.parent.mkdir(parents=True)
 
     path.write_text(json.dumps(request_response))
 
